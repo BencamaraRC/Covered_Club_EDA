@@ -1,0 +1,31 @@
+# Environment
+.env
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Data — never commit downloaded data
+data/raw/*
+data/interim/*
+data/output/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/output/.gitkeep
+
+# Manifest is a log, not source
+data/manifest.csv
+
+# IDE
+.vscode/
+.idea/
+.windsurf/
+
+# OS
+.DS_Store
+Thumbs.db
