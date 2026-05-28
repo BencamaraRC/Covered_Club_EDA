@@ -93,8 +93,15 @@ def run_agent(
     """
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key:
+        try:
+            import streamlit as st
+
+            api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+        except Exception:
+            pass
+    if not api_key:
         return (
-            "⚠️ **ANTHROPIC_API_KEY is not set.** Add it to your `.env` file to use the analyst.",
+            "⚠️ **ANTHROPIC_API_KEY is not set.** Add it to your `.env` file or Streamlit Cloud secrets to use the analyst.",
             [],
             False,
         )
