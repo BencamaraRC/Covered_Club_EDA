@@ -10,6 +10,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
+from src.agent.executor import run_agent
 
 # Page configuration
 st.set_page_config(
@@ -96,6 +97,60 @@ def load_census_data():
     return pd.DataFrame()
 
 
+@st.cache_data
+def load_sex_data():
+    """Load Census sex by LA data."""
+    path = Path("data/output/10_sex_by_la.csv")
+    if path.exists():
+        return pd.read_csv(path)
+    return pd.DataFrame()
+
+
+@st.cache_data
+def load_household_data():
+    """Load household composition by LA data."""
+    path = Path("data/output/11_household_composition_la.csv")
+    if path.exists():
+        return pd.read_csv(path)
+    return pd.DataFrame()
+
+
+@st.cache_data
+def load_uc_data():
+    """Load Universal Credit claimants by sex and LA."""
+    path = Path("data/output/12_uc_claimants_by_sex_la.csv")
+    if path.exists():
+        return pd.read_csv(path)
+    return pd.DataFrame()
+
+
+@st.cache_data
+def load_venues_data():
+    """Load Gambling Commission premises by LA."""
+    path = Path("data/output/13_gambling_venues_by_la.csv")
+    if path.exists():
+        return pd.read_csv(path)
+    return pd.DataFrame()
+
+
+@st.cache_data
+def load_companies_data():
+    """Load Companies House leisure/gambling companies by LA."""
+    path = Path("data/output/14_leisure_companies_by_la.csv")
+    if path.exists():
+        return pd.read_csv(path)
+    return pd.DataFrame()
+
+
+@st.cache_data
+def load_gambling_spend_data():
+    """Load gambling spend by region."""
+    path = Path("data/output/15_gambling_spend_by_region.csv")
+    if path.exists():
+        return pd.read_csv(path)
+    return pd.DataFrame()
+
+
 # Load data
 clpi_df = load_clpi_data()
 quintile_df = load_quintile_data()
@@ -103,6 +158,12 @@ prize_df = load_prize_data()
 gambling_df = load_gambling_data()
 gdhi_df = load_gdhi_data()
 census_df = load_census_data()
+sex_df = load_sex_data()
+household_df = load_household_data()
+uc_df = load_uc_data()
+venues_df = load_venues_data()
+companies_df = load_companies_data()
+gambling_spend_df = load_gambling_spend_data()
 
 # Sidebar
 st.sidebar.title("Covered Club Dashboard")
@@ -117,6 +178,7 @@ page = st.sidebar.radio(
         "Which Prize to Lead With",
         "What to Charge (Affordability)",
         "Market Overview",
+        "Ask the Analyst (AI)",
     ],
 )
 
@@ -674,6 +736,120 @@ elif page == "Market Overview":
     For detailed methodology, see `docs/analytical_approach.md`
     """
     )
+
+elif page == "Ask the Analyst (AI)":
+    st.markdown('<h1 class="main-header">Ask the Analyst</h1>', unsafe_allow_html=True)
+    st.markdown(
+        "Ask any business question about the Covered Club market data. "
+        "The analyst can query datasets, generate charts, re-run the pipeline with custom weights, "
+        "and write new persistent dashboard pages."
+    )
+
+    # Session state for chat history
+    if "agent_messages" not in st.session_state:
+        st.session_state.agent_messages = []
+    if "agent_figures" not in st.session_state:
+        st.session_state.agent_figures = []
+
+    # Sidebar context panel
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### Analyst Context")
+    datasets_loaded = [
+        name
+        for name, df in [
+            ("clpi", clpi_df),
+            ("quintile", quintile_df),
+            ("prize", prize_df),
+            ("gambling", gambling_df),
+            ("gdhi", gdhi_df),
+            ("sex_by_la", sex_df),
+            ("household_composition", household_df),
+            ("uc_claimants", uc_df),
+            ("gambling_venues", venues_df),
+            ("leisure_companies", companies_df),
+            ("gambling_spend_by_region", gambling_spend_df),
+        ]
+        if not df.empty
+    ]
+    st.sidebar.markdown(f"**Datasets loaded:** {', '.join(datasets_loaded)}")
+    if st.sidebar.button("Clear conversation"):
+        st.session_state.agent_messages = []
+        st.session_state.agent_figures = []
+        st.rerun()
+
+    # Example prompts
+    with st.expander("💡 Example questions"):
+        st.markdown(
+            """
+        - *Which 5 local authorities should we target first for our launch campaign?*
+        - *Which prize has the strongest value framing relative to annual household spend?*
+        - *At £10 a ticket, what % of Q1 households can afford to enter within the 5% responsible gambling threshold?*
+        - *Reweight CLPI to 60% fuel poverty, 20% deprivation, 20% income gap — which areas move up?*
+        - *Create a new dashboard page called 'North West Deep Dive' with the top 10 LAs in that region*
+        - *Show me a scatter of CLPI score vs fuel poverty % coloured by region*
+        """
+        )
+
+    # Chat history
+    for i, msg in enumerate(st.session_state.agent_messages):
+        role = msg["role"]
+        if role == "user":
+            with st.chat_message("user"):
+                st.markdown(msg["content"])
+        elif role == "assistant":
+            with st.chat_message("assistant"):
+                st.markdown(msg["content"])
+                # Render any figures associated with this message
+                for fig in st.session_state.agent_figures:
+                    if fig.get("message_index") == i:
+                        st.plotly_chart(fig["figure"], use_container_width=True)
+
+    # Input
+    dataframes = {
+        "clpi": clpi_df,
+        "quintile": quintile_df,
+        "prize": prize_df,
+        "gambling": gambling_df,
+        "gdhi": gdhi_df,
+        "sex_by_la": sex_df,
+        "household_composition": household_df,
+        "uc_claimants": uc_df,
+        "gambling_venues": venues_df,
+        "leisure_companies": companies_df,
+        "gambling_spend_by_region": gambling_spend_df,
+    }
+
+    if prompt := st.chat_input("Ask a question about the data..."):
+        st.session_state.agent_messages.append({"role": "user", "content": prompt})
+
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                claude_messages = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in st.session_state.agent_messages
+                    if m["role"] in ("user", "assistant")
+                ]
+                answer, figures, pipeline_rerun = run_agent(claude_messages, dataframes)
+
+            st.markdown(answer)
+
+            message_index = len(st.session_state.agent_messages)
+            for fig in figures:
+                st.plotly_chart(fig, use_container_width=True)
+                st.session_state.agent_figures.append(
+                    {"figure": fig, "message_index": message_index}
+                )
+
+            if pipeline_rerun:
+                st.success(
+                    "✅ Pipeline re-run complete. Reload the page to see updated data."
+                )
+
+        st.session_state.agent_messages.append({"role": "assistant", "content": answer})
+
 
 # Footer
 st.markdown("---")

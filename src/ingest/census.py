@@ -95,12 +95,160 @@ def fetch_age_structure() -> pd.DataFrame:
     return df[["lsoa_code", "lsoa_name", "population"]]
 
 
-def fetch_household_composition() -> pd.DataFrame:
-    """TS003 — Household composition, LSOA level.
-    Simplified to return population for now.
+def fetch_sex_by_lsoa() -> pd.DataFrame:
+    """TS008 — Sex by LSOA (Census 2021).
+    Dataset: NM_2041_1
+    Returns: lsoa_code, lsoa_name, female_population, male_population, total_population
     """
-    # Return empty for now - complex household data requires different dataset
-    return pd.DataFrame()
+    params = {
+        "geography": "TYPE297",  # LSOA 2021
+        "c2021ts008": "1,2",  # 1=Male, 2=Female
+        "measures": "20100",  # count
+        "select": "geography_code,geography_name,c2021ts008_name,obs_value",
+    }
+    try:
+        df = _get("NM_2041_1", params)
+        if df.empty:
+            return pd.DataFrame()
+        df.columns = [c.lower() for c in df.columns]
+        df = df.rename(
+            columns={
+                "geography_code": "lsoa_code",
+                "geography_name": "lsoa_name",
+                "c2021ts008_name": "sex",
+                "obs_value": "population",
+            }
+        )
+        pivot = df.pivot_table(
+            index=["lsoa_code", "lsoa_name"],
+            columns="sex",
+            values="population",
+            aggfunc="sum",
+        ).reset_index()
+        pivot.columns.name = None
+        rename = {}
+        for col in pivot.columns:
+            if "female" in col.lower() or col == "Female":
+                rename[col] = "female_population"
+            elif "male" in col.lower() or col == "Male":
+                rename[col] = "male_population"
+        pivot = pivot.rename(columns=rename)
+        if "female_population" not in pivot.columns:
+            pivot["female_population"] = 0
+        if "male_population" not in pivot.columns:
+            pivot["male_population"] = 0
+        pivot["total_population"] = (
+            pivot["female_population"] + pivot["male_population"]
+        )
+        return pivot[
+            [
+                "lsoa_code",
+                "lsoa_name",
+                "female_population",
+                "male_population",
+                "total_population",
+            ]
+        ]
+    except Exception as e:
+        print(f"CENSUS sex fetch failed: {e}")
+        return pd.DataFrame()
+
+
+def sex_la_summary(
+    sex_lsoa_df: pd.DataFrame, lsoa_la_lookup: pd.DataFrame
+) -> pd.DataFrame:
+    """Roll LSOA sex data up to LA level."""
+    merged = sex_lsoa_df.merge(
+        lsoa_la_lookup[["lsoa_code", "la_code", "la_name"]], on="lsoa_code", how="left"
+    )
+    merged = merged.dropna(subset=["la_code"])
+    la = merged.groupby(["la_code", "la_name"], as_index=False).agg(
+        female_population=("female_population", "sum"),
+        male_population=("male_population", "sum"),
+        total_population=("total_population", "sum"),
+    )
+    la["female_pct"] = (la["female_population"] / la["total_population"] * 100).round(1)
+    return la.sort_values("female_population", ascending=False)
+
+
+def fetch_household_composition() -> pd.DataFrame:
+    """TS003 — Household composition by LSOA (Census 2021).
+    Dataset: NM_2023_1
+    Returns: lsoa_code, household_type, count
+    """
+    params = {
+        "geography": "TYPE297",  # LSOA 2021
+        "c2021ts003": "0",  # total + all categories
+        "measures": "20100",
+        "select": "geography_code,geography_name,c2021ts003_name,obs_value",
+    }
+    try:
+        df = _get("NM_2023_1", params)
+        if df.empty:
+            return pd.DataFrame()
+        df.columns = [c.lower() for c in df.columns]
+        df = df.rename(
+            columns={
+                "geography_code": "lsoa_code",
+                "geography_name": "lsoa_name",
+                "c2021ts003_name": "household_type",
+                "obs_value": "count",
+            }
+        )
+        return df[["lsoa_code", "lsoa_name", "household_type", "count"]]
+    except Exception as e:
+        print(f"CENSUS household composition fetch failed: {e}")
+        return pd.DataFrame()
+
+
+def household_la_summary(
+    hh_lsoa_df: pd.DataFrame, lsoa_la_lookup: pd.DataFrame
+) -> pd.DataFrame:
+    """Roll LSOA household composition up to LA level, computing lone-parent and single-adult %."""
+    if hh_lsoa_df.empty:
+        return pd.DataFrame()
+    merged = hh_lsoa_df.merge(
+        lsoa_la_lookup[["lsoa_code", "la_code", "la_name"]], on="lsoa_code", how="left"
+    )
+    merged = merged.dropna(subset=["la_code"])
+
+    total = (
+        merged[merged["household_type"].str.lower().str.contains("total", na=False)]
+        .groupby(["la_code", "la_name"])["count"]
+        .sum()
+        .reset_index(name="total_households")
+    )
+    lone = (
+        merged[
+            merged["household_type"].str.lower().str.contains("lone parent", na=False)
+        ]
+        .groupby(["la_code", "la_name"])["count"]
+        .sum()
+        .reset_index(name="lone_parent_households")
+    )
+    single = (
+        merged[
+            merged["household_type"]
+            .str.lower()
+            .str.contains("one person|single", na=False)
+        ]
+        .groupby(["la_code", "la_name"])["count"]
+        .sum()
+        .reset_index(name="single_adult_households")
+    )
+
+    la = (
+        total.merge(lone, on=["la_code", "la_name"], how="left")
+        .merge(single, on=["la_code", "la_name"], how="left")
+        .fillna(0)
+    )
+    la["lone_parent_pct"] = (
+        la["lone_parent_households"] / la["total_households"] * 100
+    ).round(1)
+    la["single_adult_pct"] = (
+        la["single_adult_households"] / la["total_households"] * 100
+    ).round(1)
+    return la.sort_values("lone_parent_pct", ascending=False)
 
 
 def fetch_ethnicity() -> pd.DataFrame:
@@ -114,7 +262,7 @@ def fetch_ethnicity() -> pd.DataFrame:
 def fetch(force_refresh: bool = False) -> dict:
     """
     Fetch all Census demographic data.
-    Returns dict with keys: age_structure, household_composition, ethnicity
+    Returns dict with keys: age_structure, household_composition, ethnicity, sex
     """
     if not NOMIS_API_KEY:
         print("CENSUS: NOMIS_API_KEY not set in .env, skipping Census ingest")
@@ -122,6 +270,7 @@ def fetch(force_refresh: bool = False) -> dict:
             "age_structure": pd.DataFrame(),
             "household_composition": pd.DataFrame(),
             "ethnicity": pd.DataFrame(),
+            "sex": pd.DataFrame(),
         }
 
     print("CENSUS: Fetching demographic data from Nomis API...")
@@ -130,6 +279,7 @@ def fetch(force_refresh: bool = False) -> dict:
         "age_structure": fetch_age_structure(),
         "household_composition": fetch_household_composition(),
         "ethnicity": fetch_ethnicity(),
+        "sex": fetch_sex_by_lsoa(),
     }
 
     # Save population data to output directory
@@ -137,6 +287,16 @@ def fetch(force_refresh: bool = False) -> dict:
         output_path = RAW_DIR / "census_population_lsoa.csv"
         data["age_structure"].to_csv(output_path, index=False)
         print(f"CENSUS: Saved population data to {output_path}")
+
+    if not data["sex"].empty:
+        output_path = RAW_DIR / "census_sex_lsoa.csv"
+        data["sex"].to_csv(output_path, index=False)
+        print(f"CENSUS: Saved sex data to {output_path}")
+
+    if not data["household_composition"].empty:
+        output_path = RAW_DIR / "census_household_lsoa.csv"
+        data["household_composition"].to_csv(output_path, index=False)
+        print(f"CENSUS: Saved household composition data to {output_path}")
 
     return data
 
