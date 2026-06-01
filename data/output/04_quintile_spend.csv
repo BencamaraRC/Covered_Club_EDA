@@ -1,0 +1,6 @@
+quintile,total_weekly_spend,pct_on_housing_fuel_power,pct_on_energy_alone,energy_weekly_£,essentials_pct,essentials_weekly_£,non_essential_weekly_£,potential_£10_tickets_weekly,potential_£20_tickets_weekly
+Q1 (poorest),378.6,27,10,37.86,39,147.65,230.95,23.1,11.5
+Q2,469.0,22,9,42.21,34,159.46,309.54,31.0,15.5
+Q3,589.0,19,7,41.23,30,176.7,412.3,41.2,20.6
+Q4,725.0,17,6,43.5,28,203.0,522.0,52.2,26.1
+Q5 (richest),948.7,14,5,47.44,24,227.69,721.01,72.1,36.1

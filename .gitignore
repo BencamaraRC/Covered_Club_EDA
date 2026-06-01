@@ -10,13 +10,14 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
-# Data — never commit downloaded data
+# Data — never commit downloaded raw data
 data/raw/*
 data/interim/*
-data/output/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
-!data/output/.gitkeep
+
+# Output data — commit CSVs for Streamlit Cloud deployment
+!data/output/*.csv
 
 # Manifest is a log, not source
 data/manifest.csv

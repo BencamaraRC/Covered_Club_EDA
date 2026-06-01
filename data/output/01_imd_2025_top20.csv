@@ -1,0 +1,21 @@
+la_name,region,imd_2025_avg_score_rank,pct_lsoa_top10pct,postcode_districts_sample
+Blackpool,North West,1,50.0,"FY1, FY2, FY3, FY4"
+Knowsley,North West,2,46.0,"L14, L26, L28, L32, L33, L34, L35, L36"
+Middlesbrough,North East,3,49.0,"TS1, TS3, TS4, TS5, TS6, TS7, TS8"
+Burnley,North West,4,40.0,"BB10, BB11, BB12"
+Hartlepool,North East,5,38.0,"TS24, TS25, TS26, TS27"
+Kingston upon Hull,Yorkshire/Humber,6,42.0,HU1-HU9
+Birmingham,West Midlands,7,41.0,"B6, B8, B9, B10, B11, B12, B18, B19, B20"
+Manchester,North West,8,40.0,"M8, M9, M11, M12, M13, M14, M16, M18, M40"
+Liverpool,North West,9,43.0,"L4, L5, L6, L7, L8, L11, L20, L21"
+Stoke-on-Trent,West Midlands,10,36.0,"ST1, ST2, ST3, ST6"
+Blackburn with Darwen,North West,11,35.0,"BB1, BB2"
+Sandwell,West Midlands,12,33.0,"B65, B66, B67, B68, B69, B70, B71"
+Pendle,North West,13,32.0,"BB8, BB9"
+Nottingham,East Midlands,14,35.0,"NG3, NG5, NG6, NG7, NG8"
+Bradford,Yorkshire/Humber,15,32.0,"BD3, BD4, BD5, BD7, BD8"
+Hyndburn,North West,16,30.0,BB5
+Rochdale,North West,17,30.0,"OL11, OL12, OL16"
+Walsall,West Midlands,18,28.0,"WS1, WS2, WS3, WS9"
+Wolverhampton,West Midlands,19,28.0,"WV1, WV2, WV3, WV10, WV11"
+Oldham,North West,20,27.0,"OL1, OL4, OL8, OL9"

@@ -6,4 +6,3 @@ textColor = "#262730"
 
 [server]
 headless = true
-enableCORS = false
