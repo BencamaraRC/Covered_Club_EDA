@@ -1,1 +1,53 @@
 la_code,la_name,gambling_companies,leisure_companies,total_companies
+E09000001,City of London,0,2,2
+E09000002,Barking and Dagenham,2,19,21
+E09000003,Barnet,7,26,33
+E09000004,Bexley,5,20,25
+E09000005,Brent,5,27,32
+E09000006,Bromley,5,29,34
+E09000007,Camden,9,20,29
+E09000008,Croydon,7,27,34
+E09000009,Ealing,5,28,33
+E09000010,Enfield,6,19,25
+E09000011,Greenwich,11,17,28
+E09000012,Hackney,5,14,19
+E09000013,Hammersmith and Fulham,10,7,17
+E09000014,Haringey,4,16,20
+E09000015,Harrow,9,17,26
+E09000016,Havering,4,14,18
+E09000017,Hillingdon,11,25,36
+E09000018,Hounslow,4,19,23
+E09000019,Islington,5,13,18
+E09000020,Kensington and Chelsea,7,12,19
+E09000021,Kingston upon Thames,2,6,8
+E09000022,Lambeth,3,23,26
+E09000023,Lewisham,9,17,26
+E09000024,Merton,9,12,21
+E09000025,Newham,12,22,34
+E09000026,Redbridge,9,21,30
+E09000027,Richmond upon Thames,10,15,25
+E09000028,Southwark,5,20,25
+E09000029,Sutton,2,12,14
+E09000030,Tower Hamlets,5,21,26
+E09000031,Waltham Forest,8,23,31
+E09000032,Wandsworth,7,23,30
+E09000033,Westminster,4,8,12
+E08000001,Bolton,5,19,24
+E08000002,Bury,4,11,15
+E08000003,Manchester,14,40,54
+E08000004,Oldham,2,17,19
+E08000005,Rochdale,8,9,17
+E08000006,Salford,4,15,19
+E08000007,Stockport,13,19,32
+E08000008,Tameside,7,9,16
+E08000009,Trafford,11,16,27
+E08000010,Wigan,8,14,22
+E08000011,Knowsley,3,9,12
+E08000012,Liverpool,11,37,48
+E08000013,St. Helens,4,12,16
+E08000014,Sefton,7,24,31
+E08000015,Wirral,5,22,27
+E08000016,Barnsley,6,16,22
+E08000017,Doncaster,5,23,28
+E08000018,Rotherham,12,12,24
+E08000019,Sheffield,13,33,46
