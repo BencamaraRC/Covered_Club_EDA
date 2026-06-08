@@ -11,6 +11,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from pathlib import Path
 from src.agent.executor import run_agent
+from bingo_halls_map import render_bingo_map
 
 # Page configuration
 st.set_page_config(
@@ -217,6 +218,7 @@ page = st.sidebar.radio(
     [
         "Where to Launch (CLPI Rankings)",
         "Target Areas Map",
+        "Bingo Audience Map",
         "Which Prize to Lead With",
         "What to Charge (Affordability)",
         "Market Overview",
@@ -842,6 +844,9 @@ elif page == "What to Charge (Affordability)":
         st.info(
             "Industry guidance suggests tickets should not exceed 5% of non-essential discretionary income. At £10, this threshold is met for Q1 (poorest) through Q4."
         )
+
+elif page == "Bingo Audience Map":
+    render_bingo_map(key_prefix="bingo")
 
 elif page == "Market Overview":
     st.markdown('<h1 class="main-header">Market Overview</h1>', unsafe_allow_html=True)
