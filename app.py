@@ -182,10 +182,42 @@ page = st.sidebar.radio(
     ],
 )
 
-# CLPI Weight Controls (visual only - data already computed)
+# CLPI Weight Controls — live, recomputes rankings on change
 st.sidebar.markdown("### CLPI Weights")
-st.sidebar.info("Current weights: 50% Deprivation / 25% Fuel Poverty / 25% Income Gap")
-st.sidebar.markdown("*Adjust weights would require recomputing CLPI scores*")
+st.sidebar.caption("Drag to reweight the index — rankings update instantly.")
+
+w_dep_pct = st.sidebar.slider("Deprivation", 0, 100, 50, step=5, format="%d%%")
+w_fp_pct = st.sidebar.slider("Fuel poverty", 0, 100, 25, step=5, format="%d%%")
+w_inc_pct = st.sidebar.slider("Income gap", 0, 100, 25, step=5, format="%d%%")
+
+_wtotal = w_dep_pct + w_fp_pct + w_inc_pct
+if _wtotal == 0:
+    st.sidebar.warning("Weights can't all be 0 — reverting to default 50/25/25.")
+    w_dep_pct, w_fp_pct, w_inc_pct, _wtotal = 50, 25, 25, 100
+
+# Normalise so the three weights always sum to 100%, whatever the sliders total
+wn_dep = w_dep_pct / _wtotal
+wn_fp = w_fp_pct / _wtotal
+wn_inc = w_inc_pct / _wtotal
+if _wtotal != 100:
+    st.sidebar.caption(
+        f"Normalised to **{wn_dep:.0%}** deprivation · "
+        f"**{wn_fp:.0%}** fuel · **{wn_inc:.0%}** income"
+    )
+
+# Recompute CLPI live from the component scores already in the dataset
+# (same formula as src/analyse/clpi.py — no pipeline re-run needed).
+if not clpi_df.empty:
+    clpi_df = clpi_df.copy()
+    clpi_df["clpi_score"] = (
+        wn_dep * clpi_df["score_deprivation"]
+        + wn_fp * clpi_df["score_fuel_poverty"]
+        + wn_inc * clpi_df["score_income_gap"]
+    ).round(1)
+    clpi_df = clpi_df.sort_values("clpi_score", ascending=False).reset_index(
+        drop=True
+    )
+    clpi_df["clpi_rank"] = clpi_df.index + 1
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Data Sources")
@@ -236,11 +268,11 @@ if page == "Where to Launch (CLPI Rankings)":
 
             with st.expander("ℹ️ What is CLPI Score?"):
                 st.markdown(
-                    """
+                    f"""
                 **CLPI (Cost-of-Living Pressure Index)** measures overall economic pressure in an area (0-100 scale).
-                
-                **Formula**: 50% × Deprivation + 25% × Fuel Poverty + 25% × Income Gap
-                
+
+                **Formula**: {wn_dep:.0%} × Deprivation + {wn_fp:.0%} × Fuel Poverty + {wn_inc:.0%} × Income Gap
+
                 Higher scores = more pressure = better target market for Covered Club.
                 """
                 )
@@ -283,7 +315,7 @@ if page == "Where to Launch (CLPI Rankings)":
                 **Income Gap Score ({top_la['score_income_gap']:.1f})**: Gap between regional and UK average income (0-100).
                 Formula: (UK Avg GDHI − Region GDHI) ÷ UK Avg GDHI × 100
                 
-                **Weights**: 50% deprivation / 25% fuel poverty / 25% income gap
+                **Weights**: {wn_dep:.0%} deprivation / {wn_fp:.0%} fuel poverty / {wn_inc:.0%} income gap
                 """
                 )
 
@@ -725,12 +757,12 @@ elif page == "Market Overview":
     st.markdown("---")
     st.markdown("### About This Analysis")
     st.markdown(
-        """
+        f"""
     This dashboard uses published UK statistics to triangulate market insights for Covered Club:
-    
+
     - **Data Sources**: MHCLG, DESNZ, ONS, Gambling Commission, DCMS
     - **Geographic Unit**: Lower-layer Super Output Area (LSOA) rolled up to Local Authority
-    - **CLPI Formula**: 50% deprivation + 25% fuel poverty + 25% income gap
+    - **CLPI Formula**: {wn_dep:.0%} deprivation + {wn_fp:.0%} fuel poverty + {wn_inc:.0%} income gap (live-weighted)
     - **Limitations**: No first-party customer data pre-launch; all figures from published statistics
     
     For detailed methodology, see `docs/analytical_approach.md`
@@ -855,4 +887,11 @@ elif page == "Ask the Analyst (AI)":
 st.markdown("---")
 st.markdown(
     "*Covered Club UK Market Analysis Dashboard | Data Sources: MHCLG, DESNZ, ONS, Gambling Commission*"
+)
+st.markdown(
+    "<div style='text-align:center; color:#888; font-size:0.8rem; margin-top:0.5rem;'>"
+    "🔒 <strong>Private &amp; Confidential</strong> — Prepared for Covered Club by CamSoft Analytics. "
+    "Not for distribution."
+    "</div>",
+    unsafe_allow_html=True,
 )
