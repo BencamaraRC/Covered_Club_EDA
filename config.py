@@ -75,6 +75,10 @@ UK_AVG_WEEKLY_SPEND = {
     "petrol": 21.40,
     "housing_fuel_power_total": 113.30,
     "transport_total": 88.20,
+    # Childcare is a "parents-only" cost, not a whole-population average:
+    # part-time (25h/wk) nursery place for an under-2 in England.
+    # Source: Coram Family & Childcare, Childcare Survey 2024.
+    "childcare": 157.0,
 }
 
 # ============ RESIDUAL-INCOME ("after bills") MODEL ============

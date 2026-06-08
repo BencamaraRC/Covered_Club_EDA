@@ -24,11 +24,53 @@ st.set_page_config(
 st.markdown(
     """
 <style>
+    /* Gradient page title with accent underline */
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
-        margin-bottom: 1rem;
+        font-size: 2.6rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        background: linear-gradient(90deg, #1a1a2e 0%, #1f77b4 60%, #2e9bd6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.25rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 4px solid;
+        border-image: linear-gradient(90deg, #1f77b4, rgba(31,119,180,0)) 1;
+    }
+    .main-subtitle {
+        color: #5a6472;
+        font-size: 1.02rem;
+        margin: 0 0 1.4rem 0;
+    }
+    /* Banner used to emphasise a section/page header */
+    .page-banner {
+        background: linear-gradient(100deg, #1a1a2e 0%, #1f4e79 55%, #1f77b4 100%);
+        color: #fff;
+        padding: 1.1rem 1.4rem;
+        border-radius: 0.6rem;
+        margin: 0.2rem 0 1.2rem 0;
+        box-shadow: 0 4px 14px rgba(26,26,46,0.18);
+    }
+    .page-banner h1 {
+        color: #fff !important;
+        font-size: 2.1rem;
+        font-weight: 800;
+        margin: 0;
+        -webkit-text-fill-color: #fff;
+    }
+    .page-banner p {
+        color: #d7e3f0;
+        margin: 0.35rem 0 0 0;
+        font-size: 1rem;
+    }
+    .section-title {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        border-left: 5px solid #1f77b4;
+        padding-left: 0.6rem;
+        margin: 1.2rem 0 0.6rem 0;
     }
     .metric-card {
         background-color: #f0f2f6;
@@ -547,77 +589,133 @@ elif page == "Target Areas Map":
 
 elif page == "Which Prize to Lead With":
     st.markdown(
-        '<h1 class="main-header">Which Prize to Lead With</h1>', unsafe_allow_html=True
-    )
-    st.markdown(
-        "Prize-vs-spend ratios help prioritize which prize should lead acquisition campaigns. Higher ratios indicate stronger value framing."
+        '<div class="page-banner"><h1>🎁 Which Prize to Lead With</h1>'
+        "<p>Edit the ticket price, prize value or weekly cost for any competition — "
+        "the value framing recomputes instantly.</p></div>",
+        unsafe_allow_html=True,
     )
 
     with st.expander("ℹ️ How is this calculated?"):
         st.markdown(
             """
-        **Prize vs Annual Spend Ratio** = Prize Amount ÷ (Weekly Category Spend × 52) × 100
-        
-        This shows how much the prize is worth relative to what UK households spend annually on that category.
-        
-        Example: If a prize is worth 200% of annual spend, it means the prize covers 2 years of typical spending.
-        
-        Higher ratios = stronger value proposition for customers.
+        **Prize vs annual spend** = Prize ÷ (weekly category cost × 52) × 100
+        — how many years of that bill the prize covers (higher = stronger value framing).
+
+        **Ticket vs weekly cost** = Ticket ÷ weekly category cost × 100
+        — how the entry price compares to a week of that bill.
         """
         )
 
-    if prize_df.empty:
-        st.error("Prize data not found. Please ensure the pipeline has been run.")
-    else:
-        # Filter out incomplete rows (Childcare has missing data)
-        complete_prizes = prize_df[prize_df["annual_category_spend_£"].notna()].copy()
+    from config import COVERED_CLUB_PRIZES, UK_AVG_WEEKLY_SPEND
 
-        # Bar chart
-        fig = px.bar(
-            complete_prizes,
-            x="competition",
-            y="prize_as_pct_of_annual_spend",
-            title="Prize Value as % of Annual Category Spend",
-            color="prize_as_pct_of_annual_spend",
-            color_continuous_scale="Blues",
-            labels={
-                "prize_as_pct_of_annual_spend": "Prize as % of Annual Spend",
-                "competition": "Competition",
-            },
-        )
-        fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
+    CATEGORY_LABEL = {
+        "food": "Food & drink",
+        "energy": "Electricity, gas, fuel",
+        "petrol": "Petrol & diesel",
+        "childcare": "Childcare (parents only)",
+    }
 
-        # Detailed table
-        st.markdown("### Detailed Prize Analysis")
-
-        col1, col2, col3 = st.columns(3)
-
-        for idx, row in complete_prizes.iterrows():
-            with col1:
-                st.markdown(f"**{row['competition']}**")
-                st.metric("Ticket Price", f"£{row['ticket_£']}")
-                st.metric("Prize Value", f"£{row['prize_£']}")
-
-            with col2:
-                st.metric("Weekly Pain Point", f"£{row['weekly_pain_£']}")
-                st.metric(
-                    "Annual Category Spend", f"£{row['annual_category_spend_£']:.0f}"
-                )
-
-            with col3:
-                ratio = row["prize_as_pct_of_annual_spend"]
-                st.metric("Prize vs Annual Spend", f"{ratio:.0f}%")
-                st.markdown(f"*Prize is {ratio/100:.1f}× annual spend*")
-
-            st.markdown("---")
-
-        # Recommendation
-        best_prize = complete_prizes.loc[
-            complete_prizes["prize_as_pct_of_annual_spend"].idxmax()
+    # Build the editable table live from config (not the static CSV), so
+    # childcare — which now has a weekly cost — is included.
+    default_df = pd.DataFrame(
+        [
+            {
+                "Competition": p["competition"],
+                "Category": CATEGORY_LABEL.get(p["category"], p["category"].title()),
+                "Ticket £": float(p["ticket_gbp"]),
+                "Prize £": float(p["prize_gbp"]),
+                "Weekly cost £": float(UK_AVG_WEEKLY_SPEND.get(p["category"], 0.0)),
+            }
+            for p in COVERED_CLUB_PRIZES
         ]
+    )
+
+    st.markdown('<div class="section-title">✏️ Edit prizes</div>', unsafe_allow_html=True)
+    edited = st.data_editor(
+        default_df,
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Competition": st.column_config.TextColumn(disabled=True),
+            "Category": st.column_config.TextColumn(disabled=True),
+            "Ticket £": st.column_config.NumberColumn(
+                min_value=1, max_value=100, step=1, format="£%d"
+            ),
+            "Prize £": st.column_config.NumberColumn(
+                min_value=0, step=100, format="£%d"
+            ),
+            "Weekly cost £": st.column_config.NumberColumn(
+                min_value=0.0,
+                step=1.0,
+                format="£%.2f",
+                help="Typical weekly spend on this bill — editable assumption.",
+            ),
+        },
+        key="prize_editor",
+    )
+
+    # Live recompute of the value-framing ratios.
+    calc = edited.copy()
+    calc["Annual spend £"] = (calc["Weekly cost £"] * 52).round(0)
+    calc["Prize as % of annual spend"] = [
+        round(pz / ann * 100, 0) if ann and ann > 0 else float("nan")
+        for pz, ann in zip(calc["Prize £"], calc["Annual spend £"])
+    ]
+    calc["Ticket as % of weekly cost"] = [
+        round(tk / wk * 100, 1) if wk and wk > 0 else float("nan")
+        for tk, wk in zip(calc["Ticket £"], calc["Weekly cost £"])
+    ]
+    complete = calc[calc["Prize as % of annual spend"].notna()].copy()
+
+    st.markdown(
+        '<div class="section-title">📊 Prize value as % of annual category spend</div>',
+        unsafe_allow_html=True,
+    )
+    fig = px.bar(
+        complete,
+        x="Competition",
+        y="Prize as % of annual spend",
+        color="Prize as % of annual spend",
+        color_continuous_scale="Blues",
+        text="Prize as % of annual spend",
+    )
+    fig.update_traces(texttemplate="%{text:.0f}%", textposition="outside")
+    fig.update_layout(xaxis_tickangle=-30, yaxis_title="Prize as % of annual spend")
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown(
+        '<div class="section-title">🔎 Detailed prize analysis</div>',
+        unsafe_allow_html=True,
+    )
+    detail_cols = st.columns(max(len(complete), 1))
+    for col, (_, r) in zip(detail_cols, complete.iterrows()):
+        with col:
+            st.markdown(f"**{r['Competition']}**")
+            st.caption(r["Category"])
+            st.metric("Ticket", f"£{r['Ticket £']:.0f}")
+            st.metric("Prize", f"£{r['Prize £']:.0f}")
+            st.metric(
+                "Prize vs annual spend",
+                f"{r['Prize as % of annual spend']:.0f}%",
+                help=f"{r['Prize as % of annual spend'] / 100:.1f}× a year of {r['Category'].lower()}",
+            )
+            st.metric("Ticket vs weekly cost", f"{r['Ticket as % of weekly cost']:.0f}%")
+
+    if calc["Prize as % of annual spend"].isna().any():
+        missing = calc.loc[
+            calc["Prize as % of annual spend"].isna(), "Competition"
+        ].tolist()
+        st.caption(
+            f"⚠️ No weekly cost set for: {', '.join(missing)} — add one above to score it."
+        )
+
+    if not complete.empty:
+        best = complete.loc[complete["Prize as % of annual spend"].idxmax()]
         st.success(
-            f"**Recommendation:** Lead with **{best_prize['competition']}** - highest value framing at {best_prize['prize_as_pct_of_annual_spend']:.0f}% of annual spend"
+            f"**Recommendation:** Lead with **{best['Competition']}** — strongest value "
+            f"framing at **{best['Prize as % of annual spend']:.0f}%** of annual "
+            f"{best['Category'].lower()} spend "
+            f"({best['Prize as % of annual spend'] / 100:.1f}× a year)."
         )
 
 elif page == "What to Charge (Affordability)":
