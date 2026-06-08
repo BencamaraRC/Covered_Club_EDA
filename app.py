@@ -422,26 +422,56 @@ elif page == "Target Areas Map":
             st.metric("Income Gap Score", f"{la_data['score_income_gap']:.1f}")
 
         st.markdown("---")
-        st.markdown("### Demographic Profile")
+        st.markdown(f"### Demographic Profile — {selected_la}")
 
-        if not census_df.empty:
-            st.success("✅ Census 2021 population data loaded successfully!")
-            st.metric("Total LSOAs with Census Data", f"{len(census_df):,}")
+        # Look up the selected LA in each demographic dataset (keyed by la_name).
+        uc_row = uc_df[uc_df["la_name"] == selected_la] if not uc_df.empty else uc_df
+        hh_row = (
+            household_df[household_df["la_name"] == selected_la]
+            if not household_df.empty
+            else household_df
+        )
+        sex_row = sex_df[sex_df["la_name"] == selected_la] if not sex_df.empty else sex_df
 
-            # Show sample of census data
-            st.markdown("#### Sample LSOA Population Data")
-            st.dataframe(census_df.head(10), use_container_width=True, hide_index=True)
+        if uc_row.empty and hh_row.empty and sex_row.empty:
+            st.info(f"No demographic data available for {selected_la} yet.")
         else:
-            st.info("📊 **Census data not loaded. To enable demographic data:**")
-            st.markdown(
-                """
-            1. Ensure NOMIS_API_KEY is configured in `.env` file
-            2. Run `python -m src.ingest.census` to fetch data
-            3. Restart the Streamlit app
-            
-            **Current status:** Population data at LSOA level (25,000+ rows)
-            **Future enhancements:** Ethnicity, age structure, household composition
-            """
+            d1, d2, d3 = st.columns(3)
+
+            with d1:
+                st.markdown("**Universal Credit** · *DWP*")
+                if not uc_row.empty:
+                    r = uc_row.iloc[0]
+                    st.metric("UC claimants", f"{int(r['total_claimants']):,}")
+                    st.metric("Female claimants", f"{r['female_claimant_pct']:.0f}%")
+                else:
+                    st.caption("Not available for this area.")
+
+            with d2:
+                st.markdown("**Households** · *Census 2021*")
+                if not hh_row.empty:
+                    r = hh_row.iloc[0]
+                    st.metric("Households", f"{int(r['total_households']):,}")
+                    st.metric("Lone-parent", f"{r['lone_parent_pct']:.1f}%")
+                    st.metric("Single-adult", f"{r['single_adult_pct']:.1f}%")
+                else:
+                    st.caption("Not available for this area.")
+
+            with d3:
+                st.markdown("**Population** · *Census 2021*")
+                if not sex_row.empty:
+                    r = sex_row.iloc[0]
+                    st.metric("Residents", f"{int(r['total']):,}")
+                    st.metric("Female", f"{r['female_pct']:.1f}%")
+                else:
+                    st.caption("Not available for this area.")
+
+            st.caption(
+                "ℹ️ Universal Credit counts are live DWP figures (cover almost every "
+                "authority). Census population & household figures are currently "
+                "demo-populated for a subset of areas — run "
+                "`python -m src.ingest.census` with a NOMIS API key for full national "
+                "coverage."
             )
 
         st.markdown("---")
