@@ -188,7 +188,9 @@ st.sidebar.caption("Drag to reweight the index — rankings update instantly.")
 
 w_dep_pct = st.sidebar.slider("Deprivation", 0, 100, 50, step=5, format="%d%%")
 w_fp_pct = st.sidebar.slider("Fuel poverty", 0, 100, 25, step=5, format="%d%%")
-w_inc_pct = st.sidebar.slider("Income gap", 0, 100, 25, step=5, format="%d%%")
+w_inc_pct = st.sidebar.slider(
+    "Residual income (after bills)", 0, 100, 25, step=5, format="%d%%"
+)
 
 _wtotal = w_dep_pct + w_fp_pct + w_inc_pct
 if _wtotal == 0:
@@ -202,8 +204,14 @@ wn_inc = w_inc_pct / _wtotal
 if _wtotal != 100:
     st.sidebar.caption(
         f"Normalised to **{wn_dep:.0%}** deprivation · "
-        f"**{wn_fp:.0%}** fuel · **{wn_inc:.0%}** income"
+        f"**{wn_fp:.0%}** fuel · **{wn_inc:.0%}** residual income"
     )
+
+# The income component now uses residual income ("after bills"); fall back to
+# the legacy regional income-gap score if the residual column is absent.
+income_score_col = (
+    "score_residual" if "score_residual" in clpi_df.columns else "score_income_gap"
+)
 
 # Recompute CLPI live from the component scores already in the dataset
 # (same formula as src/analyse/clpi.py — no pipeline re-run needed).
@@ -212,7 +220,7 @@ if not clpi_df.empty:
     clpi_df["clpi_score"] = (
         wn_dep * clpi_df["score_deprivation"]
         + wn_fp * clpi_df["score_fuel_poverty"]
-        + wn_inc * clpi_df["score_income_gap"]
+        + wn_inc * clpi_df[income_score_col]
     ).round(1)
     clpi_df = clpi_df.sort_values("clpi_score", ascending=False).reset_index(
         drop=True
@@ -271,7 +279,7 @@ if page == "Where to Launch (CLPI Rankings)":
                     f"""
                 **CLPI (Cost-of-Living Pressure Index)** measures overall economic pressure in an area (0-100 scale).
 
-                **Formula**: {wn_dep:.0%} × Deprivation + {wn_fp:.0%} × Fuel Poverty + {wn_inc:.0%} × Income Gap
+                **Formula**: {wn_dep:.0%} × Deprivation + {wn_fp:.0%} × Fuel Poverty + {wn_inc:.0%} × Residual income (after bills)
 
                 Higher scores = more pressure = better target market for Covered Club.
                 """
@@ -312,10 +320,10 @@ if page == "Where to Launch (CLPI Rankings)":
                 **Fuel Poverty Score ({top_la['score_fuel_poverty']:.1f})**: Normalized vs England's worst rate (0-100).
                 Formula: (LA Rate ÷ Max Rate) × 100
                 
-                **Income Gap Score ({top_la['score_income_gap']:.1f})**: Gap between regional and UK average income (0-100).
-                Formula: (UK Avg GDHI − Region GDHI) ÷ UK Avg GDHI × 100
-                
-                **Weights**: {wn_dep:.0%} deprivation / {wn_fp:.0%} fuel poverty / {wn_inc:.0%} income gap
+                **Residual income score ({top_la.get('score_residual', float('nan')):.1f})**: Income left *after the bills*, per LA (0-100, higher = less headroom).
+                Residual = net income After Housing Costs − energy − council tax − food − transport. Income & council tax are real per-LA figures; energy/food/transport are national assumptions.
+
+                **Weights**: {wn_dep:.0%} deprivation / {wn_fp:.0%} fuel poverty / {wn_inc:.0%} residual income
                 """
                 )
 
@@ -342,7 +350,8 @@ if page == "Where to Launch (CLPI Rankings)":
                     "clpi_score",
                     "score_deprivation",
                     "score_fuel_poverty",
-                    "score_income_gap",
+                    "score_residual",
+                    "residual_weekly",
                     "imd_2025_avg_score_rank",
                     "fuel_poverty_pct_2024",
                 ]
@@ -419,7 +428,54 @@ elif page == "Target Areas Map":
 
         with col3:
             st.metric("Deprivation Score", f"{la_data['score_deprivation']:.1f}")
-            st.metric("Income Gap Score", f"{la_data['score_income_gap']:.1f}")
+            if "residual_weekly" in la_data and pd.notna(la_data.get("residual_weekly")):
+                st.metric(
+                    "Residual income / week",
+                    f"£{la_data['residual_weekly']:.0f}",
+                    help="Money left after housing, energy, council tax, food & transport.",
+                )
+            else:
+                st.metric("Residual score", f"{la_data.get('score_residual', float('nan')):.1f}")
+
+        # ---- Residual income "after bills" breakdown for this LA ----
+        if "residual_annual" in la_data and pd.notna(la_data.get("residual_annual")):
+            st.markdown("---")
+            st.markdown(f"### Money After Bills — {selected_la}")
+            st.caption(
+                "Net income After Housing Costs, minus the main bills, to a weekly "
+                "residual. Income & council tax are real per-LA figures (ONS / GOV.UK); "
+                "energy, food & transport are national averages. Water is already inside "
+                "After-Housing-Costs income, so it is not subtracted again."
+            )
+            steps = [
+                ("Income after housing (ONS, per LA)", la_data["ahc_income"], "+"),
+                ("− Energy (national)", -la_data["energy"], "−"),
+                ("− Council tax (per LA)", -la_data["council_tax"], "−"),
+                ("− Food (national)", -la_data["food"], "−"),
+                ("− Transport (national)", -la_data["transport"], "−"),
+            ]
+            fig_wf = go.Figure(
+                go.Waterfall(
+                    orientation="v",
+                    measure=["absolute"] + ["relative"] * 4 + ["total"],
+                    x=[s[0] for s in steps] + ["Residual income"],
+                    y=[s[1] for s in steps] + [la_data["residual_annual"]],
+                    text=[f"£{abs(s[1]):,.0f}" for s in steps]
+                    + [f"£{la_data['residual_annual']:,.0f}"],
+                    textposition="outside",
+                    connector={"line": {"color": "#bbb"}},
+                    increasing={"marker": {"color": "#2e7d32"}},
+                    decreasing={"marker": {"color": "#c62828"}},
+                    totals={"marker": {"color": "#1f77b4"}},
+                )
+            )
+            fig_wf.update_layout(
+                title=f"From income to spare cash · £{la_data['residual_weekly']:.0f}/week residual",
+                showlegend=False,
+                height=420,
+                margin=dict(t=60, b=40),
+            )
+            st.plotly_chart(fig_wf, use_container_width=True)
 
         st.markdown("---")
         st.markdown(f"### Demographic Profile — {selected_la}")
@@ -757,18 +813,30 @@ elif page == "Market Overview":
     st.markdown("---")
 
     if not gdhi_df.empty:
-        st.markdown("### Regional Disposable Income (GDHI)")
+        st.markdown("### Regional Income *Before* Bills (GDHI) — context only")
+        st.info(
+            "GDHI is income **before** any living costs, **per person**, **by region** "
+            "— useful background, but not the targeting measure. For *money left after "
+            "the bills*, see **Residual income** on the *Target Areas Map* page "
+            "(per Local Authority)."
+        )
 
-        with st.expander("ℹ️ What is GDHI?"):
+        with st.expander("ℹ️ What is GDHI — and why it isn't the after-bills figure?"):
             st.markdown(
                 """
-            **GDHI (Gross Disposable Household Income)**: The amount of money households have available for spending or saving after taxes and benefits.
-            
-            **Per Head**: Calculated by dividing total regional GDHI by population.
-            
-            **Source**: ONS Regional Accounts, September 2025 release (2023 data).
-            
-            **Why it matters**: Lower GDHI regions have less disposable income, making them better target markets for bill-paying prizes.
+            **GDHI (Gross Disposable Household Income)**: money households have after **taxes
+            and benefits** — but **before** paying rent, energy, food, transport, etc. It is
+            *not* "money left over"; bills come out of it.
+
+            **Per head**: total regional GDHI ÷ everyone (incl. children & pensioners), so
+            figures look modest. It is also **regional**, so every LA in a region shares one
+            number.
+
+            **Source**: ONS Regional Accounts, 1997–2023 release (Sept 2025).
+
+            **For targeting** we instead use **residual income after bills**, built per Local
+            Authority from ONS After-Housing-Costs income + GOV.UK council tax minus standard
+            national bills — shown on the *Target Areas Map* page.
             """
             )
 
@@ -792,7 +860,7 @@ elif page == "Market Overview":
 
     - **Data Sources**: MHCLG, DESNZ, ONS, Gambling Commission, DCMS
     - **Geographic Unit**: Lower-layer Super Output Area (LSOA) rolled up to Local Authority
-    - **CLPI Formula**: {wn_dep:.0%} deprivation + {wn_fp:.0%} fuel poverty + {wn_inc:.0%} income gap (live-weighted)
+    - **CLPI Formula**: {wn_dep:.0%} deprivation + {wn_fp:.0%} fuel poverty + {wn_inc:.0%} residual income after bills (live-weighted)
     - **Limitations**: No first-party customer data pre-launch; all figures from published statistics
     
     For detailed methodology, see `docs/analytical_approach.md`

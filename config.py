@@ -77,6 +77,25 @@ UK_AVG_WEEKLY_SPEND = {
     "transport_total": 88.20,
 }
 
+# ============ RESIDUAL-INCOME ("after bills") MODEL ============
+# residual = net income After Housing Costs (per LA, real)
+#            − energy − council tax (per LA, real) − food − transport
+# Water is NOT subtracted: ONS "After Housing Costs" already nets out water
+# charges, so subtracting it again would double-count.
+#
+# Energy/food/transport are standardised NATIONAL annual £ assumptions (they
+# shift every LA by the same amount); the LA-to-LA differences come from the
+# real local AHC income + council tax. All figures are auditable here.
+BILL_ASSUMPTIONS = {
+    "energy_annual_gbp": 1700,  # Ofgem price cap, typical dual-fuel household 2024-25
+    "food_annual_gbp": round(70.50 * 52),  # ONS Family Spending FYE2024 food
+    "transport_annual_gbp": round(88.20 * 52),  # ONS Family Spending FYE2024 transport
+    # Council tax is per-LA (GOV.UK Table 7). Band D is scaled to an average
+    # per-dwelling basis because most homes in deprived areas sit in Bands A-C
+    # and pay less than Band D (national avg per dwelling ÷ avg Band D, 2024-25).
+    "council_tax_per_dwelling_factor": 1668 / 2171,
+}
+
 # Covered Club prize structure (from business overview).
 COVERED_CLUB_PRIZES = [
     {
